@@ -30,8 +30,8 @@ namespace pos
         string order_type = "";
         private TextBox focusedTextbox = null;
         private string Pname;
-        private string Pprice;
-        private float Pqty = 2;
+        private decimal Pprice;
+        private int Pqty = 1;
         public bool Neworder = false;
         private PictureBox pic;
         private Label price;
@@ -357,7 +357,7 @@ namespace pos
                 SqlDataReader dr = cmd.ExecuteReader();
                 while (dr.Read())
                 {
-                    Pqty = float.Parse(dr["qty"].ToString());
+                    Pqty = Convert.ToInt32(dr["qty"]);
                 }
 
             }
@@ -386,7 +386,7 @@ namespace pos
                 while (dr.Read())
                 {
                     Pname = dr["item_name"].ToString();
-                    Pprice = dr["item_price"].ToString();
+                    Pprice = Convert.ToDecimal(dr["item_price"]);
                 }
                 dr.Close();
             }
@@ -400,6 +400,12 @@ namespace pos
                 con.Close();
             }
 
+            if (!long.TryParse(lblTransNo.Text, out long currentTransNo))
+            {
+                MessageBox.Show("Please place a new order before adding items to the cart.", "Order Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             if (CheckItemExists())
             {
                 GetQty();
@@ -409,9 +415,12 @@ namespace pos
                 try
                 {
                     con.Open();
-                    cmd.Parameters.AddWithValue("@name", Pname);
-                    cmd.Parameters.AddWithValue("@total", (float.Parse(Pprice)) * (Pqty + 1));
-                    cmd.Parameters.AddWithValue("@qty", Pqty + 1);
+                    cmd.Parameters.Add("@name", System.Data.SqlDbType.NVarChar, 200).Value = Pname;
+                    var totalParam = cmd.Parameters.Add("@total", System.Data.SqlDbType.Decimal);
+                    totalParam.Precision = 18;
+                    totalParam.Scale = 2;
+                    totalParam.Value = Pprice * (Pqty + 1);
+                    cmd.Parameters.Add("@qty", System.Data.SqlDbType.Int).Value = Pqty + 1;
                     cmd.ExecuteNonQuery();
 
                 }
@@ -434,12 +443,18 @@ namespace pos
                 {
                     con.Open();
 
-                    cmd.Parameters.AddWithValue("@transno", lblTransNo.Text);
-                    cmd.Parameters.AddWithValue("@pname", Pname);
-                    cmd.Parameters.AddWithValue("@price", Pprice);
-                    cmd.Parameters.AddWithValue("@total", float.Parse(Pprice));
-                    cmd.Parameters.AddWithValue("@qty", 1);
-                    cmd.Parameters.AddWithValue("@request", "");
+                    cmd.Parameters.Add("@transno", System.Data.SqlDbType.BigInt).Value = currentTransNo;
+                    cmd.Parameters.Add("@pname", System.Data.SqlDbType.NVarChar, 200).Value = Pname;
+                    var priceParam = cmd.Parameters.Add("@price", System.Data.SqlDbType.Decimal);
+                    priceParam.Precision = 18;
+                    priceParam.Scale = 2;
+                    priceParam.Value = Pprice;
+                    var totalParam = cmd.Parameters.Add("@total", System.Data.SqlDbType.Decimal);
+                    totalParam.Precision = 18;
+                    totalParam.Scale = 2;
+                    totalParam.Value = Pprice;
+                    cmd.Parameters.Add("@qty", System.Data.SqlDbType.Int).Value = 1;
+                    cmd.Parameters.Add("@request", System.Data.SqlDbType.NVarChar, -1).Value = string.Empty;
                     cmd.ExecuteNonQuery();
 
                 }
@@ -506,7 +521,8 @@ namespace pos
                     {
                         con.Open();
                         cmd.Parameters.AddWithValue("@name", dataGridView1.Rows[e.RowIndex].Cells[2].Value.ToString());
-                        cmd.Parameters.AddWithValue("@total", (float.Parse(dataGridView1.Rows[e.RowIndex].Cells[3].Value.ToString())) * (Pqty - 1));
+                        decimal unitPrice = Convert.ToDecimal(dataGridView1.Rows[e.RowIndex].Cells[3].Value);
+                        cmd.Parameters.AddWithValue("@total", unitPrice * (Pqty - 1));
                         cmd.Parameters.AddWithValue("@qty", Pqty - 1);
                         cmd.ExecuteNonQuery();
 
@@ -536,7 +552,8 @@ namespace pos
                 {
                     con.Open();
                     cmd.Parameters.AddWithValue("@name", dataGridView1.Rows[e.RowIndex].Cells[2].Value.ToString());
-                    cmd.Parameters.AddWithValue("@total", (float.Parse(dataGridView1.Rows[e.RowIndex].Cells[3].Value.ToString())) * (Pqty + 1));
+                    decimal unitPrice = Convert.ToDecimal(dataGridView1.Rows[e.RowIndex].Cells[3].Value);
+                    cmd.Parameters.AddWithValue("@total", unitPrice * (Pqty + 1));
                     cmd.Parameters.AddWithValue("@qty", Pqty + 1);
                     cmd.ExecuteNonQuery();
 
